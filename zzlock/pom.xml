@@ -12,7 +12,7 @@
     <artifactId>zzlock</artifactId>
 
     <name>zzlock</name>
-    <url>http://zzlock.zzspace.top</url>
+    <url>https://github.com/challengezhou/zzlock-project</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

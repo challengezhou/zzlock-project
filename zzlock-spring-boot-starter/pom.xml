@@ -12,7 +12,7 @@
     <artifactId>zzlock-spring-boot-starter</artifactId>
 
     <name>zzlock-spring-boot-starter</name>
-    <url>http://zzlock.zzspace.top</url>
+    <url>https://github.com/challengezhou/zzlock-project</url>
 
     <dependencies>
         <dependency>

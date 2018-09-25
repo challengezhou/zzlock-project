@@ -14,7 +14,21 @@
     </modules>
 
     <name>zzlock-project</name>
-    <url>http://zzspace.top</url>
+    <url>https://github.com/challengezhou/zzlock-project</url>
+
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+            <comments>A distributed lock for java based on redis command SETNX and GETSET</comments>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://github.com/challengezhou/zzlock-project</url>
+        <connection>git@github.com:challengezhou/zzlock-project.git</connection>
+    </scm>
 
 
     <properties>
