@@ -44,7 +44,11 @@ public class ZzLock {
     }
 
     public void setLockKeyPrefix(String lockKeyPrefix) {
-        this.lockKeyPrefix = lockKeyPrefix;
+        if (null == lockKeyPrefix){
+            this.lockKeyPrefix = "ZzLock";
+        }else {
+            this.lockKeyPrefix = lockKeyPrefix;
+        }
     }
 
     public int getExpireMs() {
@@ -82,8 +86,10 @@ public class ZzLock {
 
     /**
      * acquire lock. retry until acquire timeout
+     * @param lockKey the lock key
      *
      * @return true if lock is acquired, false acquire timeout
+     * @throws InterruptedException interrupt lock operation
      */
     public boolean acquire(String lockKey) throws InterruptedException {
         setLockKey(lockKey);
@@ -92,6 +98,7 @@ public class ZzLock {
 
     /**
      * grab lock. will return immediately
+     * @param lockKey the lock key
      *
      * @return true if lock is grabbed, false grab failed
      */
@@ -217,17 +224,17 @@ public class ZzLock {
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper, int timeoutMs, int expireMs) {
-        lockKeyHolder.set(lockKey);
+        setLockKey(lockKey);
         return wrap(wrapper, DEFAULT_LOCK_FAILED, timeoutMs, expireMs);
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper, Integer lockFailedCode) {
-        lockKeyHolder.set(lockKey);
+        setLockKey(lockKey);
         return wrap(wrapper, lockFailedCode, 0, 0);
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper) {
-        lockKeyHolder.set(lockKey);
+        setLockKey(lockKey);
         return wrap(wrapper, DEFAULT_LOCK_FAILED,0,0);
     }
 

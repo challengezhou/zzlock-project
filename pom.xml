@@ -6,7 +6,7 @@
 
     <groupId>top.zzspace.zzlock</groupId>
     <artifactId>zzlock-project</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
     <packaging>pom</packaging>
     <modules>
         <module>zzlock-spring-boot-starter</module>
@@ -14,8 +14,8 @@
     </modules>
 
     <name>zzlock-project</name>
+    <description>A distributed lock for java based on redis command SETNX and GETSET</description>
     <url>https://github.com/challengezhou/zzlock-project</url>
-
     <licenses>
         <license>
             <name>MIT</name>
@@ -24,7 +24,12 @@
             <comments>A distributed lock for java based on redis command SETNX and GETSET</comments>
         </license>
     </licenses>
-
+    <developers>
+        <developer>
+            <name>challengezhou</name>
+            <email>453834948@qq.com</email>
+        </developer>
+    </developers>
     <scm>
         <url>https://github.com/challengezhou/zzlock-project</url>
         <connection>git@github.com:challengezhou/zzlock-project.git</connection>
@@ -94,4 +99,65 @@
             </plugins>
         </pluginManagement>
     </build>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- Source -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.0.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Javadoc -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>2.10.4</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- GPG -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            <distributionManagement>
+                <snapshotRepository>
+                    <id>sonatype</id>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+                </snapshotRepository>
+                <repository>
+                    <id>sonatype</id>
+                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+                </repository>
+            </distributionManagement>
+        </profile>
+    </profiles>
 </project>
