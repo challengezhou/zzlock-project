@@ -42,9 +42,6 @@ public class ZzLockTest {
                     System.out.println(" || Out thread value " + testConcurrent);
                     return null;
                 });
-//                System.out.print("In thread value " + testConcurrent);
-//                testConcurrent = ++testConcurrent;
-//                System.out.println(" || Out thread value " + testConcurrent);
             });
         }
         countDownLatch.countDown();
