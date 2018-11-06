@@ -39,4 +39,9 @@ public interface LockExecutor {
      */
     void del(String key);
 
+    /**
+     * 释放executor占用的资源等
+     */
+    void release();
+
 }

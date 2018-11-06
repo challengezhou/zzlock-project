@@ -198,6 +198,7 @@ public class ZzLock {
 
     public void release() {
         release(executor);
+        executor.release();
         lockKeyHolder.remove();
         lockedHolder.remove();
     }

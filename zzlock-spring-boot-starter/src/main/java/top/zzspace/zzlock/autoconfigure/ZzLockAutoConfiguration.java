@@ -47,6 +47,11 @@ public class ZzLockAutoConfiguration {
             public void del(String key) {
                 stringRedisTemplate.delete(key);
             }
+
+            @Override
+            public void release() {
+
+            }
         };
     }
 
