@@ -1,9 +1,11 @@
 package top.zzspace.zzlock.zzlockspringbootstartertestapp.test;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.junit4.SpringRunner;
 import top.zzspace.zzlock.ZzLock;
 
@@ -21,32 +23,63 @@ public class ZzLockTest {
 
     private static int testConcurrent = 0;
 
-    private CountDownLatch countDownLatch = new CountDownLatch(1);
+    private CountDownLatch countDownLatch = null;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private ZzLock zzLock;
 
+    @Before
+    public void before() {
+        testConcurrent = 0;
+        countDownLatch = new CountDownLatch(1);
+    }
+
     @Test
-    public void tesMultiThread() throws InterruptedException {
-        ExecutorService service = Executors.newFixedThreadPool(10);
+    public void tesMultiThreadWithoutLock() throws InterruptedException {
+        System.out.println("Without lock");
         for (int i = 0; i < 10; i++) {
-            service.submit(() -> {
+            new Thread(() -> {
                 try {
                     countDownLatch.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                zzLock.wrap("testLock", () -> {
+                System.out.print("In thread value " + testConcurrent);
+                testConcurrent = ++testConcurrent;
+                System.out.println(" || Out thread value " + testConcurrent);
+            }).start();
+        }
+        countDownLatch.countDown();
+        Thread.sleep(1000);
+    }
+
+    @Test
+    public void tesMultiThreadWithLock() throws InterruptedException {
+        System.out.println("With zzlock");
+        long begin = System.currentTimeMillis();
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                try {
+                    countDownLatch.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                zzLock.wrap("test", () -> {
                     System.out.print("In thread value " + testConcurrent);
                     testConcurrent = ++testConcurrent;
                     System.out.println(" || Out thread value " + testConcurrent);
+                    long end = System.currentTimeMillis();
+                    System.out.println(end-begin);
                     return null;
                 });
-            });
+
+            }).start();
         }
         countDownLatch.countDown();
-        service.shutdown();
-        service.awaitTermination(10,TimeUnit.SECONDS);
+        Thread.sleep(5000);
     }
 
 }
