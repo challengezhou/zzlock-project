@@ -44,9 +44,9 @@ public class ZzLock {
     }
 
     public void setLockKeyPrefix(String lockKeyPrefix) {
-        if (null == lockKeyPrefix){
+        if (null == lockKeyPrefix) {
             this.lockKeyPrefix = "ZzLock";
-        }else {
+        } else {
             this.lockKeyPrefix = lockKeyPrefix;
         }
     }
@@ -68,7 +68,7 @@ public class ZzLock {
     }
 
     private void setLockKey(String lockKey) {
-        lockKeyHolder.set(lockKeyPrefix + lockKey);
+        lockKeyHolder.set(lockKeyPrefix + "." + lockKey);
     }
 
     public String getLockKey() {
@@ -86,8 +86,8 @@ public class ZzLock {
 
     /**
      * acquire lock. retry until acquire timeout
-     * @param lockKey the lock key
      *
+     * @param lockKey the lock key
      * @return true if lock is acquired, false acquire timeout
      * @throws InterruptedException interrupt lock operation
      */
@@ -98,8 +98,8 @@ public class ZzLock {
 
     /**
      * grab lock. will return immediately
-     * @param lockKey the lock key
      *
+     * @param lockKey the lock key
      * @return true if lock is grabbed, false grab failed
      */
     public boolean grab(String lockKey) {
@@ -140,8 +140,8 @@ public class ZzLock {
             if (grabbed) {
                 return true;
             }
-            timeout -= 100;
-            Thread.sleep(100);
+            timeout -= 50;
+            Thread.sleep(50);
         }
         return false;
     }
@@ -230,19 +230,23 @@ public class ZzLock {
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper, Integer lockFailedCode) {
-        setLockKey(lockKey);
+        if (null != lockKey && !"".equals(lockKey)) {
+            setLockKey(lockKey);
+        }
         return wrap(wrapper, lockFailedCode, 0, 0);
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper) {
-        setLockKey(lockKey);
-        return wrap(wrapper, DEFAULT_LOCK_FAILED,0,0);
+        if (null != lockKey && !"".equals(lockKey)) {
+            setLockKey(lockKey);
+        }
+        return wrap(wrapper, DEFAULT_LOCK_FAILED, 0, 0);
     }
 
     private ExecutionResult wrap(CommandWrapper wrapper, Integer lockFailedCode, int timeoutMs, int expireMs) {
         try {
             String lockKey = getLockKey();
-            if (null == lockKey || "".equals(lockKey)) {
+            if (null == lockKey) {
                 return wrapper.execute();
             }
             if (acquire(timeoutMs, expireMs)) {
