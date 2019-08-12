@@ -6,7 +6,7 @@
 
     <groupId>top.zzspace.zzlock</groupId>
     <artifactId>zzlock-project</artifactId>
-    <version>0.0.2</version>
+    <version>0.0.3</version>
     <packaging>pom</packaging>
     <modules>
         <module>zzlock-spring-boot-starter</module>
@@ -149,15 +149,25 @@
                 </plugins>
             </build>
             <distributionManagement>
-                <snapshotRepository>
-                    <id>sonatype</id>
-                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-                </snapshotRepository>
                 <repository>
                     <id>sonatype</id>
                     <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
                 </repository>
+                <snapshotRepository>
+                    <id>sonatype</id>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+                </snapshotRepository>
             </distributionManagement>
         </profile>
     </profiles>
+    <distributionManagement>
+        <repository>
+            <id>cloudatum-deploy</id>
+            <url>${deploy.releases}</url>
+        </repository>
+        <snapshotRepository>
+            <id>cloudatum-deploy</id>
+            <url>${deploy.snapshots}</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
