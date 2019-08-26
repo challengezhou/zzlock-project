@@ -1,5 +1,7 @@
 package top.zzspace.zzlock;
 
+import top.zzspace.zzlock.exception.ZzLockFailedException;
+
 /**
  * @author zujool  At 2018/9/19 16:00
  **/
@@ -16,7 +18,7 @@ public class ZzLock {
     /**
      * 锁超时，防止加锁以后，释放失败造成无法再获得锁
      */
-    private int expireMs = 10 * 1000;
+    private int expireMs = 20 * 1000;
     /**
      * 锁等待，重试时间
      */
@@ -68,6 +70,12 @@ public class ZzLock {
     }
 
     private void setLockKey(String lockKey) {
+        if (isLocked()){
+            throw new ZzLockFailedException("Not support reentrant lock yet");
+        }
+        if (null == lockKey || lockKey.length() == 0) {
+            throw new RuntimeException("lockKey must not be null");
+        }
         lockKeyHolder.set(lockKeyPrefix + "." + lockKey);
     }
 
@@ -93,7 +101,7 @@ public class ZzLock {
      */
     public boolean acquire(String lockKey) throws InterruptedException {
         setLockKey(lockKey);
-        return acquire(0, 0);
+        return acquire(timeoutMs, expireMs);
     }
 
     /**
@@ -104,7 +112,7 @@ public class ZzLock {
      */
     public boolean grab(String lockKey) {
         setLockKey(lockKey);
-        return grab(0);
+        return grab(expireMs);
     }
 
     /**
@@ -113,34 +121,24 @@ public class ZzLock {
      * @return true if lock is acquired, false acquire timeout
      */
     private boolean acquire(int timeoutMs, int expireMs) throws InterruptedException {
-        if (null == executor) {
-            throw new RuntimeException("RedisExecutor can not be null!");
-        }
-        int timeout = this.timeoutMs;
-        int expire = this.expireMs;
-        if (0 != timeoutMs) {
-            timeout = timeoutMs;
-        }
-        if (0 != expireMs) {
-            expire = expireMs;
-        }
-        while (timeout >= 0) {
-            long currentLockTimeoutStamp = System.currentTimeMillis() + expire + 1;
+        checkRedisExecutor();
+        while (timeoutMs >= 0) {
+            long currentLockExpireTimestamp = System.currentTimeMillis() + expireMs + 1;
             //锁到期时间
-            String currentLockTimeoutStampStr = String.valueOf(currentLockTimeoutStamp);
-            boolean quickLock = executor.setIfNotExist(getLockKey(), currentLockTimeoutStampStr);
+            String currentLockExpireTimestampStr = String.valueOf(currentLockExpireTimestamp);
+            boolean quickLock = executor.setIfNotExist(getLockKey(), currentLockExpireTimestampStr);
             if (quickLock) {
                 // lock acquired
                 setLocked(true);
                 return true;
             }
             //原有锁的过期时间
-            String oldLockTimeoutStampStr = executor.get(getLockKey());
-            boolean grabbed = checkGrabbed(oldLockTimeoutStampStr, currentLockTimeoutStampStr);
+            String oldLockExpireTimestampStr = executor.get(getLockKey());
+            boolean grabbed = checkGrabbed(oldLockExpireTimestampStr, currentLockExpireTimestampStr);
             if (grabbed) {
                 return true;
             }
-            timeout -= 50;
+            timeoutMs -= 50;
             Thread.sleep(50);
         }
         return false;
@@ -152,15 +150,9 @@ public class ZzLock {
      * @return true if lock is grab, false grab failed
      */
     private boolean grab(int expireMs) {
-        if (null == executor) {
-            throw new RuntimeException("LockExecutor can not be null!");
-        }
-        int expire = this.expireMs;
-        if (0 != expireMs) {
-            expire = expireMs;
-        }
-        long expires = System.currentTimeMillis() + expire + 1;
-        //lock timeout
+        checkRedisExecutor();
+        long expires = System.currentTimeMillis() + expireMs + 1;
+        //lock expire
         String expiresStr = String.valueOf(expires);
 
         if (executor.setIfNotExist(getLockKey(), expiresStr)) {
@@ -169,25 +161,25 @@ public class ZzLock {
             return true;
         }
         //lock time
-        String currentValueStr = executor.get(getLockKey());
-        return checkGrabbed(currentValueStr, expiresStr);
+        String oldLockExpireTimestampStr = executor.get(getLockKey());
+        return checkGrabbed(oldLockExpireTimestampStr, expiresStr);
     }
 
     /**
      * 进行抢锁的检查
      *
-     * @param oldLockTimeoutStampStr     原有锁存储的时间戳字符串，用于过期检查
-     * @param currentLockTimeoutStampStr 当前锁要设置的时间戳字符串，此锁的过期时间
+     * @param oldLockExpireTimestampStr     原有锁存储的时间戳字符串，用于过期检查
+     * @param currentLockExpireTimestampStr 当前锁要设置的时间戳字符串，此锁的过期时间
      * @return 是否得到锁
      */
-    private boolean checkGrabbed(String oldLockTimeoutStampStr, String currentLockTimeoutStampStr) {
-        //如果被其他线程设置了值，存储的过期时间不会超时
-        if (oldLockTimeoutStampStr != null && Long.parseLong(oldLockTimeoutStampStr) < System.currentTimeMillis()) {
+    private boolean checkGrabbed(String oldLockExpireTimestampStr, String currentLockExpireTimestampStr) {
+        //当上一个锁超时后，进行抢锁操作
+        if (oldLockExpireTimestampStr != null && Long.parseLong(oldLockExpireTimestampStr) < System.currentTimeMillis()) {
             //获取上一个锁到期时间，并设置现在的锁到期时间，
-            //只有一个线程能获取上一个抢锁操作设置的过期时间，因此getAndSet需要是原子操作
-            String oldValueStr = executor.getAndSet(getLockKey(), currentLockTimeoutStampStr);
+            //需保证只有一个线程能获取上一个锁设置的到期时间，因此getAndSet需要是原子操作
+            String oldValueStr = executor.getAndSet(getLockKey(), currentLockExpireTimestampStr);
             //如过这个时候，多个线程恰好都到了这里，但是只有一个线程的设置值和当前值相同，他才有权利获取锁
-            if (oldValueStr != null && oldValueStr.equals(oldLockTimeoutStampStr)) {
+            if (oldValueStr != null && oldValueStr.equals(oldLockExpireTimestampStr)) {
                 // lock grabbed
                 setLocked(true);
                 return true;
@@ -197,10 +189,13 @@ public class ZzLock {
     }
 
     public void release() {
-        release(executor);
-        executor.release();
-        lockKeyHolder.remove();
-        lockedHolder.remove();
+        checkRedisExecutor();
+        if (isLocked()) {
+            executor.del(getLockKey());
+            lockKeyHolder.remove();
+            lockedHolder.remove();
+            executor.release();
+        }
     }
 
     /**
@@ -208,20 +203,30 @@ public class ZzLock {
      */
     public void forceRelease() {
         setLocked(true);
-        release(executor);
+        release();
     }
 
-    /**
-     * release the lock
-     */
-    private void release(LockExecutor executor) {
-        if (null == executor) {
-            throw new RuntimeException("RedisExecutor can not be null!");
+    public <T> T thinWrap(String lockKey, GenericCommandWrapper<T> wrapper) {
+        setLockKey(lockKey);
+        return thinWrap(wrapper, this.timeoutMs, this.expireMs);
+    }
+
+    public <T> T thinWrap(String lockKey, GenericCommandWrapper<T> wrapper, int timeoutMs, int expireMs) {
+        setLockKey(lockKey);
+        return thinWrap(wrapper, timeoutMs, expireMs);
+    }
+
+    private <T> T thinWrap(GenericCommandWrapper<T> wrapper, int timeoutMs, int expireMs) {
+        try {
+            if (acquire(timeoutMs, expireMs)) {
+                return wrapper.executeGeneric();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            release();
         }
-        if (isLocked()) {
-            executor.del(getLockKey());
-            setLocked(false);
-        }
+        throw new ZzLockFailedException("zzlock lock timeout");
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper, int timeoutMs, int expireMs) {
@@ -230,25 +235,17 @@ public class ZzLock {
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper, Integer lockFailedCode) {
-        if (null != lockKey && !"".equals(lockKey)) {
-            setLockKey(lockKey);
-        }
-        return wrap(wrapper, lockFailedCode, 0, 0);
+        setLockKey(lockKey);
+        return wrap(wrapper, lockFailedCode, this.timeoutMs, this.expireMs);
     }
 
     public ExecutionResult wrap(String lockKey, CommandWrapper wrapper) {
-        if (null != lockKey && !"".equals(lockKey)) {
-            setLockKey(lockKey);
-        }
-        return wrap(wrapper, DEFAULT_LOCK_FAILED, 0, 0);
+        setLockKey(lockKey);
+        return wrap(wrapper, DEFAULT_LOCK_FAILED, this.timeoutMs, this.expireMs);
     }
 
     private ExecutionResult wrap(CommandWrapper wrapper, Integer lockFailedCode, int timeoutMs, int expireMs) {
         try {
-            String lockKey = getLockKey();
-            if (null == lockKey) {
-                return wrapper.execute();
-            }
             if (acquire(timeoutMs, expireMs)) {
                 return wrapper.execute();
             }
@@ -258,6 +255,12 @@ public class ZzLock {
             release();
         }
         return new ExecutionResult(lockFailedCode, "zzlock failed", null);
+    }
+
+    private void checkRedisExecutor(){
+        if (null == executor) {
+            throw new RuntimeException("LockExecutor can not be null!");
+        }
     }
 
 }

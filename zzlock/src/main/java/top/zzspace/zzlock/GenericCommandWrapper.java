@@ -5,8 +5,8 @@ package top.zzspace.zzlock;
  * @author zujool  At 2018/9/19 16:14
 **/
 @FunctionalInterface
-public interface CommandWrapper {
+public interface GenericCommandWrapper<T>{
 
-    ExecutionResult execute() throws Exception;
+    T executeGeneric() throws Exception;
 
 }
