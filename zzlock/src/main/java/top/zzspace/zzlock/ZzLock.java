@@ -2,6 +2,9 @@ package top.zzspace.zzlock;
 
 import top.zzspace.zzlock.exception.ZzLockFailedException;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author zujool  At 2018/9/19 16:00
  **/
@@ -11,8 +14,8 @@ public class ZzLock {
 
     private static final int DEFAULT_LOCK_FAILED = -1;
 
-    private ThreadLocal<String> lockKeyHolder = new ThreadLocal<>();
-    private ThreadLocal<Boolean> lockedHolder = ThreadLocal.withInitial(() -> false);
+    private final ThreadLocal<List<String>> lockKeyHolder = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<Boolean> lockedHolder = ThreadLocal.withInitial(() -> false);
 
     private String lockKeyPrefix;
     /**
@@ -70,17 +73,16 @@ public class ZzLock {
     }
 
     private void setLockKey(String lockKey) {
-        if (isLocked()){
-            throw new ZzLockFailedException("Not support reentrant lock yet");
-        }
         if (null == lockKey || lockKey.length() == 0) {
-            throw new RuntimeException("lockKey must not be null");
+            throw new RuntimeException("lockKey must not be empty");
         }
-        lockKeyHolder.set(lockKeyPrefix + "." + lockKey);
+        String key = lockKeyPrefix + "." + lockKey;
+        lockKeyHolder.get().add(key);
     }
 
     public String getLockKey() {
-        return lockKeyHolder.get();
+        List<String> lockKeys = lockKeyHolder.get();
+        return lockKeys.get(lockKeys.size() - 1);
     }
 
     private void setLocked(Boolean locked) {
@@ -97,9 +99,8 @@ public class ZzLock {
      *
      * @param lockKey the lock key
      * @return true if lock is acquired, false acquire timeout
-     * @throws InterruptedException interrupt lock operation
      */
-    public boolean acquire(String lockKey) throws InterruptedException {
+    public boolean acquire(String lockKey) {
         setLockKey(lockKey);
         return acquire(timeoutMs, expireMs);
     }
@@ -120,7 +121,7 @@ public class ZzLock {
      *
      * @return true if lock is acquired, false acquire timeout
      */
-    private boolean acquire(int timeoutMs, int expireMs) throws InterruptedException {
+    private boolean acquire(int timeoutMs, int expireMs) {
         checkRedisExecutor();
         while (timeoutMs >= 0) {
             long currentLockExpireTimestamp = System.currentTimeMillis() + expireMs + 1;
@@ -139,7 +140,11 @@ public class ZzLock {
                 return true;
             }
             timeoutMs -= 50;
-            Thread.sleep(50);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         return false;
     }
@@ -191,7 +196,25 @@ public class ZzLock {
     public void release() {
         checkRedisExecutor();
         if (isLocked()) {
-            executor.del(getLockKey());
+            List<String> allKeys = lockKeyHolder.get();
+            int lastIndex = allKeys.size() - 1;
+            String lastKey = allKeys.get(lastIndex);
+            executor.del(lastKey);
+            allKeys.remove(lastIndex);
+            if (allKeys.isEmpty()) {
+                executor.release();
+            }
+        }
+    }
+
+    public void releaseAll() {
+        checkRedisExecutor();
+        if (isLocked()) {
+            List<String> allKeys = lockKeyHolder.get();
+            int size = allKeys.size();
+            for (int i = size - 1; i >= 0; i--) {
+                executor.del(allKeys.get(i));
+            }
             lockKeyHolder.remove();
             lockedHolder.remove();
             executor.release();
@@ -257,7 +280,7 @@ public class ZzLock {
         return new ExecutionResult(lockFailedCode, "zzlock failed", null);
     }
 
-    private void checkRedisExecutor(){
+    private void checkRedisExecutor() {
         if (null == executor) {
             throw new RuntimeException("LockExecutor can not be null!");
         }

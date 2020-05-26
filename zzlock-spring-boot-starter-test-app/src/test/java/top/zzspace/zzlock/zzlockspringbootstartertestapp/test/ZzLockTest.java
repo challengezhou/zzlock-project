@@ -24,6 +24,22 @@ public class ZzLockTest {
     @Autowired
     private ZzLock zzLock;
 
+    @Test
+    public void testReentrant() {
+        if (zzLock.acquire("l1")){
+            if (zzLock.acquire("l2")){
+                if (zzLock.acquire("l3")){
+                    System.out.println("all lock acquired");
+                }
+            }
+        }
+        zzLock.release();
+        zzLock.release();
+        zzLock.release();
+//        zzLock.releaseAll();
+    }
+
+
     @Before
     public void before() {
         testConcurrent = 0;

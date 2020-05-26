@@ -9,10 +9,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import top.zzspace.zzlock.LockExecutor;
 import top.zzspace.zzlock.ZzLock;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * auto config
+ *
  * @author zujool  At 2018/9/19 15:42
-**/
+ **/
 @Configuration
 @ConditionalOnBean(StringRedisTemplate.class)
 @EnableConfigurationProperties(ZzLockProperties.class)
@@ -20,17 +23,21 @@ public class ZzLockAutoConfiguration {
 
     private final ZzLockProperties properties;
 
-    public ZzLockAutoConfiguration(ZzLockProperties properties){
+    public ZzLockAutoConfiguration(ZzLockProperties properties) {
         this.properties = properties;
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public LockExecutor lockExecutor(StringRedisTemplate stringRedisTemplate){
+    public LockExecutor lockExecutor(StringRedisTemplate stringRedisTemplate) {
         return new LockExecutor() {
             @Override
             public Boolean setIfNotExist(String key, String value) {
-                return stringRedisTemplate.opsForValue().setIfAbsent(key, value);
+                Boolean result = stringRedisTemplate.opsForValue().setIfAbsent(key, value);
+                if (null != result && result && 0 != properties.getKeyExpireMs()) {
+                    stringRedisTemplate.expire(key, properties.getKeyExpireMs(), TimeUnit.MILLISECONDS);
+                }
+                return result;
             }
 
             @Override
@@ -40,7 +47,11 @@ public class ZzLockAutoConfiguration {
 
             @Override
             public String getAndSet(String key, String value) {
-                return stringRedisTemplate.opsForValue().getAndSet(key, value);
+                String result = stringRedisTemplate.opsForValue().getAndSet(key, value);
+                if (null != result && !"".equals(result) && 0 != properties.getKeyExpireMs()) {
+                    stringRedisTemplate.expire(key, properties.getKeyExpireMs(), TimeUnit.MILLISECONDS);
+                }
+                return result;
             }
 
             @Override
@@ -57,8 +68,8 @@ public class ZzLockAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ZzLock zzLock(LockExecutor lockExecutor){
-        ZzLock zzLock = new ZzLock(lockExecutor,properties.getTimeoutMs(),properties.getExpireMs());
+    public ZzLock zzLock(LockExecutor lockExecutor) {
+        ZzLock zzLock = new ZzLock(lockExecutor, properties.getTimeoutMs(), properties.getExpireMs());
         zzLock.setLockKeyPrefix(properties.getLockKeyPrefix());
         return zzLock;
     }
